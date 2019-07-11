@@ -15,7 +15,7 @@ namespace PooledArrays
             }
 
             var array = ArrayPool<U>.Shared.Rent(0);
-            Console.WriteLine($"req: 0, got: {array.Length}");
+            //Console.WriteLine($"req: 0, got: {array.Length}");
             int i = 0;
             try
             {
@@ -25,7 +25,7 @@ namespace PooledArrays
                     {
                         var size = i == 0 ? 1 : i * 2;
                         var newArray = ArrayPool<U>.Shared.Rent(size);
-                        Console.WriteLine($"req: {size}, got: {newArray.Length}");
+                        //Console.WriteLine($"req: {size}, got: {newArray.Length}");
                         Array.Copy(array, 0, newArray, 0, i);
                         ArrayPool<U>.Shared.Return(array);
                         array = newArray;
@@ -47,7 +47,7 @@ namespace PooledArrays
         public static PooledArray<U> SelectPooledArray<T, U>(this IReadOnlyList<T> xs, Func<T, U> f)
         {
             var array = ArrayPool<U>.Shared.Rent(xs.Count);
-            Console.WriteLine($"req: {xs.Count}, got: {array.Length}");
+            //Console.WriteLine($"req: {xs.Count}, got: {array.Length}");
             try
             {
                 for (var i = 0; i < xs.Count; ++i)
