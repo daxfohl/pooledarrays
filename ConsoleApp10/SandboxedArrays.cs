@@ -6,7 +6,7 @@ using PooledArrays;
 
 namespace SandboxedArrays
 {
-    public class SandboxedArray<T> : IReadOnlyList<T>
+    public sealed class SandboxedArray<T> : IReadOnlyList<T>
     {
         private readonly PooledArray<T> array;
         readonly ConcurrentBag<IDisposable> pooledArrays;
@@ -32,13 +32,13 @@ namespace SandboxedArrays
         }
     }
 
-    public class LinqSandbox : IDisposable
+    public sealed class LinqSandbox : IDisposable
     {
         readonly ConcurrentBag<IDisposable> pooledArrays = new ConcurrentBag<IDisposable>();
 
         public SandboxedArray<T> ToSandboxedArray<T>(IEnumerable<T> xs)
         {
-            var array = xs.SelectPooledArray(x => x);
+            var array = xs.ToPooledArray();
             return new SandboxedArray<T>(array, pooledArrays);
         }
 

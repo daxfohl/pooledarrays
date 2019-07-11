@@ -1,14 +1,15 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
-using PooledArrays;
 using SandboxedArrays;
 
 namespace ConsoleApp10
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
+            var sw = Stopwatch.StartNew();
             using (var sb = new LinqSandbox())
             {
                 var bs = Enumerable.Range(0, 10000000).ToSandboxedArray(sb);
@@ -21,9 +22,10 @@ namespace ConsoleApp10
                 var ks = hs.SelectSandboxedArray(i => i + 1);
                 Console.WriteLine(es.Max());
                 Console.WriteLine(es.Max());
-                Console.WriteLine(es.Max());
+                Console.WriteLine(ks.Max());
             }
 
+            Console.WriteLine($"Total Ticks: {sw.Elapsed.Ticks}");
             Console.ReadKey();
         }
     }

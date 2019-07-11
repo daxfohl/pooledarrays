@@ -2,11 +2,46 @@
 using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace PooledArrays
 {
     public static class PooledArrayExtensions
     {
+        public static PooledArray<T> ToPooledArray<T>(this IEnumerable<T> xs)
+        {
+            var sw = Stopwatch.StartNew();
+            var array = ArrayPool<T>.Shared.Rent(0);
+            Console.WriteLine($"req: 0, got: {array.Length}");
+            int i = 0;
+            try
+            {
+                foreach (var x in xs)
+                {
+                    if (i >= array.Length)
+                    {
+                        var size = i == 0 ? 1 : i * 2;
+                        var newArray = ArrayPool<T>.Shared.Rent(size);
+                        Console.WriteLine($"req: {size}, got: {newArray.Length}");
+                        Array.Copy(array, 0, newArray, 0, i);
+                        ArrayPool<T>.Shared.Return(array);
+                        array = newArray;
+                    }
+
+                    array[i] = x;
+                    ++i;
+                }
+            }
+            catch
+            {
+                ArrayPool<T>.Shared.Return(array);
+                throw;
+            }
+
+            Console.WriteLine($"Ticks: {sw.Elapsed.Ticks}");
+            return new PooledArray<T>(array, i);
+        }
+
         public static PooledArray<U> SelectPooledArray<T, U>(this IEnumerable<T> xs, Func<T, U> f)
         {
             if (xs is IReadOnlyList<T>)
@@ -46,6 +81,7 @@ namespace PooledArrays
 
         public static PooledArray<U> SelectPooledArray<T, U>(this IReadOnlyList<T> xs, Func<T, U> f)
         {
+            var sw = Stopwatch.StartNew();
             var array = ArrayPool<U>.Shared.Rent(xs.Count);
             Console.WriteLine($"req: {xs.Count}, got: {array.Length}");
             try
@@ -61,11 +97,12 @@ namespace PooledArrays
                 throw;
             }
 
+            Console.WriteLine($"Ticks: {sw.Elapsed.Ticks}");
             return new PooledArray<U>(array, xs.Count);
         }
     }
 
-    public class PooledArray<T> : IDisposable, IReadOnlyList<T>
+    public sealed class PooledArray<T> : IDisposable, IReadOnlyList<T>
     {
         private readonly T[] array;
         public PooledArray(T[] array, int length)
@@ -95,7 +132,7 @@ namespace PooledArrays
 
         IEnumerator IEnumerable.GetEnumerator() => new Enumerator(array, this.Count);
 
-        class Enumerator : IEnumerator<T>
+        sealed class Enumerator : IEnumerator<T>
         {
             private int i = -1;
             private readonly T[] array;
