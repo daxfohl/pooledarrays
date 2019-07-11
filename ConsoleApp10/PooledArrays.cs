@@ -7,11 +7,11 @@ namespace PooledArrays
 {
     public static class PooledArrayExtensions
     {
-        public static PooledArray<U> SelectArray<T, U>(this IEnumerable<T> xs, Func<T, U> f)
+        public static PooledArray<U> SelectPooledArray<T, U>(this IEnumerable<T> xs, Func<T, U> f)
         {
             if (xs is IReadOnlyList<T>)
             {
-                return SelectArray((IReadOnlyList<T>)xs, f);
+                return SelectPooledArray((IReadOnlyList<T>)xs, f);
             }
 
             var array = ArrayPool<U>.Shared.Rent(0);
@@ -44,7 +44,7 @@ namespace PooledArrays
             return new PooledArray<U>(array, i);
         }
 
-        public static PooledArray<U> SelectArray<T, U>(this IReadOnlyList<T> xs, Func<T, U> f)
+        public static PooledArray<U> SelectPooledArray<T, U>(this IReadOnlyList<T> xs, Func<T, U> f)
         {
             var array = ArrayPool<U>.Shared.Rent(xs.Count);
             Console.WriteLine($"req: {xs.Count}, got: {array.Length}");
@@ -68,18 +68,17 @@ namespace PooledArrays
     public class PooledArray<T> : IDisposable, IReadOnlyList<T>
     {
         private readonly T[] array;
-        private readonly int length;
         public PooledArray(T[] array, int length)
         {
             this.array = array;
-            this.length = length;
+            this.Count = length;
         }
 
         public T this[int index]
         {
             get
             {
-                if (index >= length)
+                if (index >= this.Count)
                 {
                     throw new IndexOutOfRangeException();
                 }
@@ -88,22 +87,13 @@ namespace PooledArrays
             }
         }
 
-        public int Count => length;
+        public int Count { get; }
 
-        public void Dispose()
-        {
-            ArrayPool<T>.Shared.Return(array);
-        }
+        public void Dispose() => ArrayPool<T>.Shared.Return(array);
 
-        public IEnumerator<T> GetEnumerator()
-        {
-            return new Enumerator(this.array, this.length);
-        }
+        public IEnumerator<T> GetEnumerator() => new Enumerator(this.array, this.Count);
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return new Enumerator(this.array, this.length);
-        }
+        IEnumerator IEnumerable.GetEnumerator() => new Enumerator(array, this.Count);
 
         class Enumerator : IEnumerator<T>
         {
@@ -131,10 +121,7 @@ namespace PooledArrays
                 return true;
             }
 
-            public void Reset()
-            {
-                this.i = 0;
-            }
+            public void Reset() => this.i = 0;
         }
     }
 }
