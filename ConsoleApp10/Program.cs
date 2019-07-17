@@ -4,6 +4,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
+using PooledArrays;
 using SandboxedArrays;
 
 namespace ConsoleApp10
@@ -11,20 +12,18 @@ namespace ConsoleApp10
 {
     class Program
     {
-        static void Main(string[] args) => BenchmarkRunner.Run<Pooling>();
+        static void Main(string[] args)
+        {
+            BenchmarkRunner.Run<Pooling>();
+        }
     }
 
     [MemoryDiagnoser]
     [Config(typeof(DontForceGcCollectionsConfig))] // we don't want to interfere with GC, we want to include it's impact
     public class Pooling
     {
-        [Params((int)1E+2, // 100 bytes
-            (int)1E+3, // 1 000 bytes = 1 KB
-            (int)1E+4, // 10 000 bytes = 10 KB
-            (int)1E+5, // 100 000 bytes = 100 KB
-            (int)1E+6, // 1 000 000 bytes = 1 MB
-            (int)1E+7)] // 10 000 000 bytes = 10 MB
-        public int SizeInBytes { get; set; }
+        [Params((int)1E+6)]
+        public int SizeInBytes { get; set; } = 1000;
 
         [Benchmark]
         public void Sandbox()
@@ -43,6 +42,22 @@ namespace ConsoleApp10
                 var y = es.Max();
                 var z = es.Max();
             }
+        }
+
+        [Benchmark]
+        public void Pool()
+        {
+            using var bs = Enumerable.Range(0, SizeInBytes).ToPooledArray();
+            using var cs = bs.SelectPooledArray(i => i + 1);
+            using var ds = cs.SelectPooledArray(i => i + 1);
+            using var es = ds.SelectPooledArray(i => i + 1);
+            using var fs = es.SelectPooledArray(i => i + 1);
+            using var gs = fs.SelectPooledArray(i => i + 1);
+            using var hs = gs.SelectPooledArray(i => i + 1);
+            using var ks = hs.SelectPooledArray(i => i + 1);
+            var x = es.Max();
+            var y = es.Max();
+            var z = es.Max();
         }
 
         [Benchmark]

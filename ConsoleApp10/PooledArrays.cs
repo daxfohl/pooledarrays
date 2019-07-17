@@ -12,35 +12,50 @@ namespace PooledArrays
         {
             var sw = Stopwatch.StartNew();
             var array = ArrayPool<T>.Shared.Rent(0);
-            Console.WriteLine($"req: 0, got: {array.Length}");
-            int i = 0;
+            var arrays = ArrayPool<T[]>.Shared.Rent(32);
+            var totalSize = array.Length;
+            var index = 0;
+            Debug.WriteLine($"req: 0, got: {array.Length}, total: 1 for {totalSize}");
+            int count = 0;
+            var arraysIndex = 0;
+            arrays[arraysIndex++] = array;
             try
             {
                 foreach (var x in xs)
                 {
-                    if (i >= array.Length)
+                    if (index >= array.Length)
                     {
-                        var size = i == 0 ? 1 : i * 2;
-                        var newArray = ArrayPool<T>.Shared.Rent(size);
-                        Console.WriteLine($"req: {size}, got: {newArray.Length}");
-                        Array.Copy(array, 0, newArray, 0, i);
-                        ArrayPool<T>.Shared.Return(array);
-                        array = newArray;
+                        var size = count == 0 ? 1 : count;
+                        array = ArrayPool<T>.Shared.Rent(size);
+                        arrays[arraysIndex++] = array;
+                        totalSize += array.Length;
+                        Debug.WriteLine($"req: {size}, got: {array.Length}, total: {arrays.Length} for {totalSize}");
+                        index = 0;
                     }
 
-                    array[i] = x;
-                    ++i;
+                    array[index++] = x;
+                    ++count;
                 }
-            }
-            catch
-            {
-                ArrayPool<T>.Shared.Return(array);
-                throw;
-            }
 
-            Console.WriteLine($"Ticks: {sw.Elapsed.Ticks}");
-            return new PooledArray<T>(array, i);
+                var start = 0;
+                var final = ArrayPool<T>.Shared.Rent(count);
+                for (var i = 0; i < arraysIndex; ++i)
+                {
+                    var arr = arrays[i];
+                    Array.Copy(arr, 0, final, start, Math.Min(arr.Length, count - start));
+                    start += arr.Length;
+                }
+
+                Debug.WriteLine($"Ticks: {sw.Elapsed.Ticks}");
+                return new PooledArray<T>(final, count);
+            }
+            finally
+            {
+                for (var i = 0; i < arraysIndex; ++i) ArrayPool<T>.Shared.Return(arrays[i]);
+                ArrayPool<T[]>.Shared.Return(arrays);
+            }
         }
+
 
         public static PooledArray<U> SelectPooledArray<T, U>(this IEnumerable<T> xs, Func<T, U> f)
         {
@@ -49,41 +64,14 @@ namespace PooledArrays
                 return SelectPooledArray((IReadOnlyList<T>)xs, f);
             }
 
-            var array = ArrayPool<U>.Shared.Rent(0);
-            //Console.WriteLine($"req: 0, got: {array.Length}");
-            int i = 0;
-            try
-            {
-                foreach (var x in xs)
-                {
-                    if (i >= array.Length)
-                    {
-                        var size = i == 0 ? 1 : i * 2;
-                        var newArray = ArrayPool<U>.Shared.Rent(size);
-                        //Console.WriteLine($"req: {size}, got: {newArray.Length}");
-                        Array.Copy(array, 0, newArray, 0, i);
-                        ArrayPool<U>.Shared.Return(array);
-                        array = newArray;
-                    }
-
-                    array[i] = f(x);
-                    ++i;
-                }
-            }
-            catch
-            {
-                ArrayPool<U>.Shared.Return(array);
-                throw;
-            }
-
-            return new PooledArray<U>(array, i);
+            return xs.ToPooledArray().SelectPooledArray(f);
         }
 
         public static PooledArray<U> SelectPooledArray<T, U>(this IReadOnlyList<T> xs, Func<T, U> f)
         {
             var sw = Stopwatch.StartNew();
             var array = ArrayPool<U>.Shared.Rent(xs.Count);
-            //Console.WriteLine($"req: {xs.Count}, got: {array.Length}");
+            //Debug.WriteLine($"req: {xs.Count}, got: {array.Length}");
             try
             {
                 for (var i = 0; i < xs.Count; ++i)
@@ -97,7 +85,7 @@ namespace PooledArrays
                 throw;
             }
 
-            Console.WriteLine($"Ticks: {sw.Elapsed.Ticks}");
+            Debug.WriteLine($"Ticks: {sw.Elapsed.Ticks}");
             return new PooledArray<U>(array, xs.Count);
         }
     }
